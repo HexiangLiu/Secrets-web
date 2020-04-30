@@ -22,7 +22,7 @@ app.use(bodyParser.urlencoded({
 app.use(express.static("public"));
 
 app.use(session({
-  secret: "This is a secret",
+  secret: process.env.SECRET,
   resave: false,
   saveUninitialized: true,
 }));
@@ -38,7 +38,8 @@ mongoose.set('useCreateIndex', true);
 
 const userSchema = new mongoose.Schema({
   facebookId: String,
-  googleId: String
+  googleId: String,
+  secret: String
 });
 
 userSchema.plugin(passportLocalMongoose);
@@ -114,17 +115,44 @@ app.get('/auth/facebook/secrets',
     res.redirect('/secrets');
   });
 
-
+// Home route handler
 app.get("/", function(req, res) {
   res.render("home");
 });
 
+
+// Secret route handler
 app.get("/secrets", function(req, res) {
-  if (req.isAuthenticated()) {
-    res.render("secrets");
-  } else {
+  User.find({secret:{$ne: null}},function(err,foundUsers){
+    if(err){
+      res.send(err);
+    }else{
+      res.render("secrets",{usersWithSecret: foundUsers});
+    }
+  });
+});
+
+// Submit route handler
+
+app.get("/submit",function(req,res){
+  if(req.isAuthenticated()){
+    res.render("submit");
+  }else{
     res.redirect("/login");
   }
+});
+
+app.post("/submit",function(req,res){
+  User.findById(req.user.id, function(err,foundUser){
+    if (err){
+      res.send(err);
+    }else{
+      foundUser.secret =  req.body.secret;
+      foundUser.save(function(){
+        res.redirect("/secrets");
+      });
+    }
+  });
 });
 
 //Register route handlers
